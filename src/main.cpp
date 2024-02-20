@@ -7,6 +7,11 @@
 #include "../include/Object.h"
 #include "../include/TextureManager.h"
 
+enum GAME_MODE {
+    SIM_MODE = 0,
+    PLAYER_MODE = 1
+};
+
 float distance(const sf::Vector2f& p1, const sf::Vector2f& p2) {
     float dx = p2.x - p1.x;
     float dy = p2.y - p1.y;
@@ -18,7 +23,10 @@ void spawn(int amount, const sf::Vector2f limits[2], std::vector<Object>& parent
 
 int main()
 {
+    // FLAGS______________________
     const bool DEBUG_MODE = false;
+    int CUR_GAME_MODE = PLAYER_MODE;
+    //____________________________
 
     sf::Vector2f bottomLeftZoneLimit(200, 200);
     sf::Vector2f topRightZoneLimit(1600, 800);
@@ -65,7 +73,8 @@ int main()
     scissorsCountLabel.setCharacterSize(12);
     scissorsCountLabel.setPosition(sf::Vector2f(0, 60));
 
-    std::vector<Object> objects;
+    std::vector<Object*> objects;
+    int curObjectID = 0;
     int objectsAmount = 100;
 
     std::random_device rd; // obtain a random number from hardware
@@ -80,29 +89,37 @@ int main()
 
     for(int i=0; i<objectsAmount; i++)
     {
-        Object obj(&textureManager, i);
-        obj.type = static_cast<ObjectType>(objt_distr(gen));
-        obj.setPosition(sf::Vector2f(xdistr(gen), ydistr(gen)));
-        obj.velocity = sf::Vector2f(fdistr(gen), fdistr(gen));
-        
-        switch (obj.type) {
-            case ObjectType::ROCK:
-                obj.setTexture(textureManager.rockTexture);
-                break;
-            case ObjectType::PAPER:
-                obj.setTexture(textureManager.paperTexture);
-                break;
-            case ObjectType::SCISSORS:
-                obj.setTexture(textureManager.scissorsTexture);
-                break;
-            default:
-                std::cout << "ERROR: Couldn't load texture based on type: type detection failed";
-                break;
-        }
+        Object* obj = new Object(&textureManager, curObjectID);
+        obj->m_type = static_cast<ObjectType>(objt_distr(gen));
+        obj->setPosition(sf::Vector2f(xdistr(gen), ydistr(gen)));
+        obj->m_velocity = sf::Vector2f(fdistr(gen), fdistr(gen));
+        obj->updateTexture();
         
         objects.push_back(obj);
     }
 
+    Object* player = nullptr;
+    float playerSpeed = 1.f;
+    int playerID = curObjectID;
+
+    sf::Text playerLabel;
+    playerLabel.setFont(defFont);
+    playerLabel.setCharacterSize(12);
+    playerLabel.setString("Player");
+
+    if(CUR_GAME_MODE == GAME_MODE::PLAYER_MODE)
+    {
+        player = new Object(&textureManager, curObjectID);
+        player->m_type = ObjectType::SCISSORS;
+        player->updateTexture();
+        player->setPosition(sf::Vector2f(0, 0));
+        player->m_velocity = sf::Vector2f(0, 0);
+        objects.push_back(player);
+        
+        playerLabel.setPosition(sf::Vector2f(player->getPosition().x - 2, player->getPosition().y + 2));
+    }
+
+    
     //====
 
     while (window.isOpen())
@@ -112,29 +129,56 @@ int main()
             if (event.type == sf::Event::Closed) {
                 window.close();
             }
-            if(event.type == sf::Event::KeyPressed){
-                if(event.key.code == sf::Keyboard::Escape){
-                    window.close();
-                }
+        }
+
+        sf::Vector2f playerMovement = sf::Vector2f(0, 0);
+        
+        if(event.type == sf::Event::KeyPressed){
+            if(event.key.code == sf::Keyboard::Escape){
+                window.close();
+            }
+            if(CUR_GAME_MODE == PLAYER_MODE && event.key.code == sf::Keyboard::Space){
+                player->mutateToNext();
             }
         }
 
+        if(CUR_GAME_MODE == PLAYER_MODE) {
+            if(sf::Keyboard::isKeyPressed(sf::Keyboard::Z)){
+                playerMovement.y = -1 * playerSpeed;
+            }
+            if(sf::Keyboard::isKeyPressed(sf::Keyboard::S)){
+                playerMovement.y = 1 * playerSpeed;
+            }
+            if(sf::Keyboard::isKeyPressed(sf::Keyboard::Q)){
+                playerMovement.x = -1 * playerSpeed;
+            }
+            if(sf::Keyboard::isKeyPressed(sf::Keyboard::D)){
+                playerMovement.x = 1 * playerSpeed;
+            }
+
+            player->m_velocity = playerMovement;
+            //std::cout << "player movement: " << playerMovement.x << " " << playerMovement.y << "\n";
+            //std::cout << "player velocity: " << player->m_velocity.x << " " << player->m_velocity.y << "\n";
+        }
+        
         // Checking collision with boundaries and move accordingly
 
         for(auto& obj : objects){
-            if(obj.getPosition().x <= bottomLeftZoneLimit.x){
-                obj.velocity.x = -obj.velocity.x;
+            if(obj->m_ID != playerID){
+                if(obj->getPosition().x <= bottomLeftZoneLimit.x){
+                    obj->m_velocity.x = -obj->m_velocity.x;
+                }
+                if(obj->getPosition().y <= bottomLeftZoneLimit.y){
+                    obj->m_velocity.y = -obj->m_velocity.y;
+                }
+                if(obj->getPosition().x >= topRightZoneLimit.x){
+                    obj->m_velocity.x = -obj->m_velocity.x;
+                }
+                if(obj->getPosition().y >= topRightZoneLimit.y){
+                    obj->m_velocity.y = -obj->m_velocity.y;
+                }
             }
-            if(obj.getPosition().y <= bottomLeftZoneLimit.y){
-                obj.velocity.y = -obj.velocity.y;
-            }
-            if(obj.getPosition().x >= topRightZoneLimit.x){
-                obj.velocity.x = -obj.velocity.x;
-            }
-            if(obj.getPosition().y >= topRightZoneLimit.y){
-                obj.velocity.y = -obj.velocity.y;
-            }
-            obj.move();
+            obj->move();
         }
 
         // Checking collisions with other objects
@@ -142,19 +186,20 @@ int main()
         // 1. Cache collisions
         // 2. Use a grid system
 
-        std::vector<Object>::iterator objIterator = objects.begin();
+        std::vector<Object*>::iterator objIterator = objects.begin();
 
         for(objIterator; objIterator != objects.end(); objIterator++){
-            //std::cout << "Object " << objIterator->ID << " :" << std::endl;
+            Object* currentObj = *objIterator;
+            //std::cout << "Object " << objIterator->m_ID << " :" << std::endl;
             for(auto& extobj : objects){
-                if(objIterator->ID != extobj.ID) {
-                    if(distance(objIterator->getPosition(), extobj.getPosition()) < 20 ) {
-                            //std::cout << "Obj type: " << static_cast<int>(obj.type) << " // Extobj type: " << static_cast<int>(extobj.type) << std::endl; 
-                            int battleRes = (objIterator->type - extobj.type + 3) % 3;
+                if(currentObj->m_ID != extobj->m_ID) {
+                    if(distance(currentObj->getPosition(), extobj->getPosition()) < 20 ) {
+                            //std::cout << "Obj type: " << static_cast<int>(obj.m_type) << " // Extobj type: " << static_cast<int>(extobj.m_type) << std::endl; 
+                            int battleRes = (currentObj->m_type - extobj->m_type + 3) % 3;
                             if(battleRes == 1){
-                                extobj.mutate(objIterator->type);
+                                extobj->mutate(currentObj->m_type);
                             } else if(battleRes == 2) {
-                                objIterator->mutate(extobj.type);
+                                currentObj->mutate(extobj->m_type);
                             }
                             break;
                     }
@@ -169,7 +214,7 @@ int main()
         objectsCount[2] = 0;
 
         for(auto& obj : objects){
-            objectsCount[obj.type]++;
+            objectsCount[obj->m_type]++;
         }
 
         // UI
@@ -190,13 +235,26 @@ int main()
         window.draw(paperCountLabel);
         window.draw(scissorsCountLabel);
         
+        if(CUR_GAME_MODE == PLAYER_MODE) {
+            playerLabel.setPosition(sf::Vector2f(player->getPosition().x - 16, player->getPosition().y + 16));
+            window.draw(playerLabel);
+        }
+
         for(auto& obj : objects){
-            if(obj.ID >-1)
-                obj.draw(window, DEBUG_MODE);
+            if(obj->m_ID >-1)
+                obj->draw(window, DEBUG_MODE);
         }
 
         window.display();
     }
+
+    // Clean!
+    for(auto ptr : objects)
+    {
+        delete ptr;
+    };
+
+    objects.clear();
 }
 
 void updateFps(auto& lastTimestamp, int& currentFrameCount, int& fps)
