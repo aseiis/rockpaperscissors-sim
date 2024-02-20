@@ -1,66 +1,88 @@
 #include "../include/Object.h"
 
-Object::Object(TextureManager* tm, int ID) : ID(ID), textureManager(tm)
+Object::Object(TextureManager* tm, int& ID) : m_ID(ID), textureManager(tm)
 {
-    sprite = sf::Sprite();
+    m_sprite = sf::Sprite();
+    ID++;
 }
 
 void Object::setPosition(const sf::Vector2f& newPos)
 {
-    position = newPos;
-    sprite.setPosition(newPos);
+    m_position = newPos;
+    m_sprite.setPosition(newPos);
 }
 
 sf::Vector2f Object::getPosition()
 {
-    return position;
+    return m_position;
 }
 
-void Object::setTexture(sf::Texture& texture)
+
+void Object::setObjectTexture(sf::Texture& texture)
 {
-    sprite.setTexture(texture);
-    sprite.setOrigin(sprite.getLocalBounds().width/2, sprite.getLocalBounds().height/2);
-    sprite.setScale(baseSpriteScale, baseSpriteScale);
-    sprite.setPosition(position.x, position.y);
+    m_sprite.setTexture(texture);
+    m_sprite.setOrigin(m_sprite.getLocalBounds().width/2, m_sprite.getLocalBounds().height/2);
+    m_sprite.setScale(baseSpriteScale, baseSpriteScale);
+    m_sprite.setPosition(m_position.x, m_position.y);
+}
+
+void Object::updateTexture()
+{
+    switch (this->m_type) {
+        case ObjectType::ROCK:
+            this->setObjectTexture(textureManager->rockTexture);
+            break;
+        case ObjectType::PAPER:
+            this->setObjectTexture(textureManager->paperTexture);
+            break;
+        case ObjectType::SCISSORS:
+            this->setObjectTexture(textureManager->scissorsTexture);
+            break;
+        default:
+            std::cout << "ERROR: Couldn't load texture based on type: type detection failed";
+            break;
+    }
 }
 
 void Object::draw(sf::RenderWindow& window, bool debug_mode)
 {
-    window.draw(sprite);
+    window.draw(m_sprite);
 
     if(debug_mode){
         sf::CircleShape debugPoint;
-        debugPoint.setRadius(2.f);
+        debugPoint.setRadius(3.f);
         debugPoint.setFillColor(sf::Color(255, 0, 0));
-        debugPoint.setPosition(position);
+        debugPoint.setOutlineColor(sf::Color(255, 100, 100));
+        debugPoint.setOutlineThickness(1.f);
+        debugPoint.setPosition(m_position);
         window.draw(debugPoint);
     }
 }
 
 void Object::move()
 {
-    setPosition(position + velocity);
+    setPosition(m_position + m_velocity);
 }
 
 void Object::mutate(ObjectType newType)
 {
-    //std::cout << "Mutating into " << static_cast<int>(newType) << "\n";
-    type = newType;
-    if(newType == ObjectType::ROCK){
-        //std::cout << "Setting rock texture.." << std::endl;
-        setTexture(textureManager->rockTexture);
-    } else if(newType == ObjectType::PAPER){
-        //std::cout << "Setting paper texture.." << std::endl;
-        setTexture(textureManager->paperTexture);
-    } else if(newType == ObjectType::SCISSORS){
-        //std::cout << "Setting scissors texture.." << std::endl;
-        setTexture(textureManager->scissorsTexture);
-    } else {
-        std::cout << "Error while trying to modify texture when mutating";
+    //std::cout << "Trying to mutate into " << static_cast<int>(newType) << "\n";
+
+    if(newType >= ObjectType::_LENGTH){
+        std::cout << "Error when mutating: unknown object type" << std::endl;
+        return;
     }
+
+    m_type = newType;
+    this->updateTexture();
+}
+
+void Object::mutateToNext()
+{
+    this->mutate(static_cast<ObjectType>((this->m_type + 1) % _LENGTH));
 }
 
 float Object::getRealRadius()
 {
-    return 108 * baseSpriteScale;
+    return SPRITE_SIZE * baseSpriteScale;
 }
