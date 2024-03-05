@@ -14,6 +14,11 @@ FetchContent_Declare(SFML
     GIT_TAG 2.6.x)
 FetchContent_MakeAvailable(SFML)
 
+# Copying assets
+set(ASSET_DIR ${CMAKE_SOURCE_DIR}/assets)
+set(TARGET_ASSET_DIR ${CMAKE_BINARY_DIR}/assets)
+file(COPY ${ASSET_DIR} DESTINATION ${CMAKE_BINARY_DIR})
+
 add_executable(RockPaperScissors 
     src/main.cpp
     src/Object.cpp
