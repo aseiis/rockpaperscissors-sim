@@ -32,8 +32,8 @@ int main()
     sf::Vector2f topRightZoneLimit(1600, 800);
     const sf::Vector2f zoneLimits[2] = { bottomLeftZoneLimit, topRightZoneLimit };
 
-    uint windowWidth = 1920;
-    uint windowHeight = 1080;
+    unsigned int windowWidth = 1920;
+    unsigned int windowHeight = 1080;
     auto window = sf::RenderWindow{ { windowWidth, windowHeight }, "Rock Paper Scissors" };
     window.setFramerateLimit(144);
 
