@@ -129,18 +129,18 @@ int main()
             if (event.type == sf::Event::Closed) {
                 window.close();
             }
+
+            if (event.type == sf::Event::KeyPressed) {
+                if (event.key.code == sf::Keyboard::Escape) {
+                    window.close();
+                }
+                if (CUR_GAME_MODE == PLAYER_MODE && event.key.code == sf::Keyboard::Space) {
+                    player->mutateToNext();
+                }
+            }
         }
 
         sf::Vector2f playerMovement = sf::Vector2f(0, 0);
-        
-        if(event.type == sf::Event::KeyPressed){
-            if(event.key.code == sf::Keyboard::Escape){
-                window.close();
-            }
-            if(CUR_GAME_MODE == PLAYER_MODE && event.key.code == sf::Keyboard::Space){
-                player->mutateToNext();
-            }
-        }
 
         if(CUR_GAME_MODE == PLAYER_MODE) {
             if(sf::Keyboard::isKeyPressed(sf::Keyboard::Z)){
